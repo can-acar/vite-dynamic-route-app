@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "baseUrl": "./",
+    "jsxImportSource": "react",
+    "outDir": "dist",
+    "target": "esnext",
+    "include": [
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.json"
+    ],
+    "exclude": [
+      "node_modules",
+      "**/node_modules",
+      "dist"
+    ],
+    "paths": {
+      "@/*": [
+        "src/*"
+      ],
+      "lib/*": [
+        "lib/*"
+      ]
+    }
+  }
+}
