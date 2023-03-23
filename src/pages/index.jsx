@@ -1,7 +1,7 @@
 const DefaultPage = () => {
   return (
       <div>
-        <h1>Default Page</h1>
+        <h1>Default Main Page</h1>
       </div>
   )
 }

@@ -1,9 +1,9 @@
-import '@/App.css'
+import '@/assets/App.css'
 import reactLogo from '@/assets/react.svg'
 import viteLogo from '@/assets/vite.svg'
 import {useState} from 'react'
 
-function App() {
+const Index = () => {
   const [count, setCount] = useState(0)
   
   return (<div className="App">
@@ -30,4 +30,4 @@ function App() {
   </div>)
 }
 
-export default App
+export default Index
