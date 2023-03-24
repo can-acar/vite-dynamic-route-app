@@ -178,7 +178,7 @@ const Router = (props) => {
     const contexts = {};
     
     for (const dirOptions of routerOptions.dirs) {
-      
+      debugger
       const context = import.meta.glob(`../src/pages/**/*.(jsx|js)`, {eager: true}) || {};
       
       Object.assign(contexts, context);
@@ -197,7 +197,7 @@ const Router = (props) => {
         state: window.history.state
       });
     };
-      
+    
     
     window.history.replaceState(window.history.state, null, window.location.pathname);
     
