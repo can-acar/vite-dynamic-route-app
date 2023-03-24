@@ -1,8 +1,7 @@
 # vite-dynamic-route-app
-vite dyamic router 
 
-
-This is a custom Router component for a React application. It dynamically imports and displays the appropriate page components based on the current URL path.
+This is a custom Router component for a vite dyamic route app like a next.js without use the react-router-dom.
+It dynamically imports and displays the appropriate page components based on the current URL path.
 
 Here's a brief explanation of the code:
 
