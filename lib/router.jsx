@@ -94,6 +94,10 @@ const matchRoute = async (pathname, pages, options) => {
         .replace(/\[\.\.\.(\w+)\]/g, `:$1([^/]+/?)+`) // [...slug] required params
         .replace(/\/index$/, '');
     
+    if (pathname.endsWith('/')) {
+      pathname = pathname.slice(0, -1);
+    }
+    
     
     const re = pathToRegexp(pattern, keys);
     
@@ -104,7 +108,8 @@ const matchRoute = async (pathname, pages, options) => {
       isMatch = true;
       
       query = keys.reduce((acc, key, index) => {
-        if (key.pattern === '([^/]+/?)') {
+        
+        if (match[index + 1]?.includes('/')) {
           acc[key.name] = match[index + 1].split('/').filter(segment => segment !== '');
         } else {
           acc[key.name] = match[index + 1];
@@ -184,15 +189,21 @@ const Router = (props) => {
   
   useEffect(() => {
     const onPopState = () => {
-      
+      // replace last trailing slash
+    
       
       setLocation({
         pathname: window.location.pathname,
         state: window.history.state
       });
     };
+      
     
     window.history.replaceState(window.history.state, null, window.location.pathname);
+    
+    if (window.location.pathname.endsWith('/')) {
+      window.history.replaceState(window.history.state, null, window.location.pathname.slice(0, -1));
+    }
     
     window.addEventListener('popstate', onPopState);
     
