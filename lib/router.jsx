@@ -1,6 +1,6 @@
 import RouterContext from 'lib/router-context';
 import {pathToRegexp} from "path-to-regexp";
-import React, {Suspense, useEffect, useMemo, useState} from 'react';
+import React, {Fragment, Suspense, useEffect, useMemo, useState} from 'react';
 
 
 const getQueryParams = (filename, options) => {
@@ -15,32 +15,76 @@ const getQueryParams = (filename, options) => {
         .map((part) => part.slice(1, -1));
 };
 
+const generatePattern = (filename, dirOptions, options) => {
+    let pattern = filename
+        .replace(`../${dirOptions.dir}`, '')
+        .replace(new RegExp(`\\.(${options.ext.join('|')})$`), '')
+        .replace(/\[(\w+)]/g, `:$1`)
+        .replace(/\[\[\.\.\.(\w+)]]/g, `:$1([^/]+/?)*`) //[[...slug]] optional params
+        .replace(/\[\.\.\.(\w+)]/g, `:$1([^/]+/?)+`) // [...slug] required params
+        .replace(/\/index$/, '');
+    
+    
+    if (dirOptions.baseRouter === '/') {
+
+        pattern = `${pattern}`;
+
+    } else {
+        pattern = `${dirOptions.baseRouter}${pattern}`;
+    }
+    
+    console.log('pattern', pattern);
+    
+    return pattern;
+};
+
+
 const generateComponent = async (pathname, pages, options) => {
     
     let keys = [];
     let isMatch = false;
     let component = {
-        componentPath: "",
-        name: "",
-        isReady: false
+        componentPath: "", name: "", isReady: false
     }
     
-    for (const filename of pages && Object.keys(pages)) {
+    // order first is default true
+    let ordersKey = Object.keys(pages).sort((a, b) => {
+        const dirOptionA = pages[a];
+        const dirOptionB = pages[b];
+        if (dirOptionA.isDefault && !dirOptionB.isDefault) {
+            return -1;
+        } else if (!dirOptionA.isDefault && dirOptionB.isDefault) {
+            return 1;
+        } else {
+            return 0;
+        }
+    })
+    
+    
+    for (const filename of ordersKey) {
         
         
         const dirOptions = options.dirs.find((dirOption) => filename.includes(dirOption.dir));
         
-        const pattern = filename
-            .replace(`../${dirOptions.dir}`, '')
-            .replace(new RegExp(`\\.(${options.ext.join('|')})$`), '')
-            .replace(/\[(\w+)\]/g, `:$1`)
-            .replace(/\[\[\.\.\.(\w+)\]\]/g, `:$1([^/]+/?)*`) //[[...slug]] optional params
-            .replace(/\[\.\.\.(\w+)\]/g, `:$1([^/]+/?)+`) // [...slug] required params
-            .replace(/\/index$/, '');
+        
+        const pattern = generatePattern(filename, dirOptions, options);
         
         const re = pathToRegexp(pattern, keys);
         
-        const match = re.exec(pathname);
+        let path = ""
+        
+        if (dirOptions.baseRouter === '') {
+            
+            path = `${pathname}`;
+            
+        } else {
+            
+            path = `${dirOptions.baseRouter}${pathname}`;
+        }
+        
+        
+        const match = re.exec(path);
+        
         
         if (match) {
             isMatch = true;
@@ -55,9 +99,7 @@ const generateComponent = async (pathname, pages, options) => {
     
     if (!isMatch) {
         component = {
-            componentPath: `../${options.dirs[0].dir}/NotFound.${options.ext[0]}`,
-            name: "NotFound",
-            isReady: true,
+            componentPath: `../${options.dirs[0].dir}/NotFound.${options.ext[0]}`, name: "NotFound", isReady: true,
         }
     }
     
@@ -73,35 +115,51 @@ const matchRoute = async (pathname, pages, options) => {
     let isMatch = false;
     
     let route = {
-        pathname: "",
-        basePath: "",
-        locale: "",
-        query: {},
-        slug: [],
+        pathname: "", basePath: "", locale: "", query: {}, slug: [],
     }
     
-    for (const filename of pages && Object.keys(pages)) {
+    let ordersKey = Object.keys(pages).sort((a, b) => {
+        const dirOptionA = pages[a];
+        const dirOptionB = pages[b];
+        if (dirOptionA.isDefault && !dirOptionB.isDefault) {
+            return -1;
+        } else if (!dirOptionA.isDefault && dirOptionB.isDefault) {
+            return 1;
+        } else {
+            return 0;
+        }
+    })
+    
+    
+    for (const filename of ordersKey) {
         let keys = [];
+        
         slug = getQueryParams(filename, options);
         
         const dirOptions = options.dirs.find((dirOption) => filename.includes(dirOption.dir));
         
-        let pattern = filename
-            .replace(`../${dirOptions.dir}`, '')
-            .replace(new RegExp(`\\.(${options.ext.join('|')})$`), '')
-            .replace(/\[(\w+)\]/g, `:$1`)
-            .replace(/\[\[\.\.\.(\w+)\]\]/g, `:$1([^/]+/?)*`)  //[[...slug]] optional params
-            .replace(/\[\.\.\.(\w+)\]/g, `:$1([^/]+/?)+`) // [...slug] required params
-            .replace(/\/index$/, '');
+        const pattern = generatePattern(filename, dirOptions, options);
         
         if (pathname.endsWith('/')) {
             pathname = pathname.slice(0, -1);
         }
         
+        let path = '';
+        
+        if (dirOptions.baseRouter === '') {
+            
+            path = `${pathname}`;
+            
+        } else {
+            
+            path = `${dirOptions.baseRouter}${pathname}`;
+        }
+        
+        console.log('path', path);
         
         const re = pathToRegexp(pattern, keys);
         
-        const match = re.exec(pathname);
+        const match = re.exec(path);
         
         if (match) {
             
@@ -121,8 +179,8 @@ const matchRoute = async (pathname, pages, options) => {
                 pathname: pathname,
                 query: query,
                 slug: slug,
-                basePath: "",
-                locale: "",
+                basePath: dirOptions.baseRouter,
+                locale: dirOptions.locale,
             }
             
             break;
@@ -132,10 +190,7 @@ const matchRoute = async (pathname, pages, options) => {
     if (!isMatch) {
         
         route = {
-            pathname: pathname,
-            query: {},
-            slug: {},
-            basePath: "",
+            pathname: pathname, query: {}, slug: {}, basePath: "",
         }
     }
     
@@ -155,17 +210,11 @@ const Router = (props) => {
     }
     
     const [component, setComponent] = useState({
-        componentPath: "",
-        isReady: false,
-        name: "",
+        componentPath: "", isReady: false, name: "",
     });
     
     const [route, updateRoute] = useState({
-        pathname: "",
-        basePath: "",
-        locale: "",
-        slug: {},
-        query: {}
+        pathname: "", basePath: "", locale: "", slug: {}, query: {}
     });
     
     const [location, setLocation] = useState({
@@ -173,61 +222,29 @@ const Router = (props) => {
         state: window.history.state,
     });
     
-    const pathToDir = (path, exts) => {
-        // if (!path || !options || !options.dirs) return null;
-        //
-        // for (const dirConfig of options.dirs) {
-        //     const baseRouter = dirConfig.baseRouter || '';
-        //     const dir = dirConfig.dir || '';
-        //     const ext = options.ext || [];
-        //
-        //     const regex = new RegExp(`^${dir.replace(/\//g, '\\/')}(\\/.*\\.(${ext.join('|')}))$`);
-        //     if (regex.test(path)) {
-        //         const relativePath = path.replace(regex, '$1');
-        //         return `${baseRouter}${relativePath}`;
-        //     }
-        // }
-        //
-        // return null;
-        if (!options) return null;
-        
-        const ext = exts ? exts.join('|') : '';
-        
-        return `../${path}/**/*\\.(${ext})`;
-        
-        
-    };
     
     const pagesContext = useMemo(() => {
         
         const contexts = {};
-        const ext = routerOptions.ext ? routerOptions.ext.join('|') : '';
-        //`../src/pages/**/*.(jsx|js)`
         
-        // for (const dir of routerOptions.dirs) {
-        //
-        //     const context = import.meta.glob(`../${dir}/**/*.( ${ext} )`, {eager: true}) || {};
-        //
-        //     Object.assign(contexts, context);
-        // }
-        const globPatterns = routerOptions.dirs.map((dir) => `../${dir}/**/*.{${routerOptions.ext.join(',')}}`);
+        const context = import.meta.glob(`../src/**/*.(jsx|js)`, {"eager": true});
         
-        (async () => {
+        for (const filename of Object.keys(context)) {
             
-            const globPatterns = routerOptions.dirs.map((dir) => `../${dir}/**/*.{${routerOptions.ext.join(',')}}`);
-           
-            for (const pattern of globPatterns) {
+            for (const dirOption of routerOptions.dirs) {
                 
-                const context = await import.meta.glob(pattern);
-                Object.assign(contexts, context);
+                if (filename.includes(dirOption.dir)) {
+                    contexts[filename] = {
+                        ...contexts[filename],
+                        isDefault: dirOption.isDefault,
+                    }
+                }
             }
-            
-            console.log(contexts);
-        })();
+        }
         
         return contexts;
         
-    }, [import.meta.glob, routerOptions]);
+    }, []);
     
     
     useEffect(() => {
@@ -236,8 +253,7 @@ const Router = (props) => {
             
             
             setLocation({
-                pathname: window.location.pathname,
-                state: window.history.state
+                pathname: window.location.pathname, state: window.history.state
             });
         };
         
@@ -257,11 +273,11 @@ const Router = (props) => {
     
     useEffect(() => {
         const bootstrap = async () => {
+            let pathname = location.pathname;
             
+            const route = await matchRoute(pathname, pagesContext, routerOptions);
             
-            const route = await matchRoute(location.pathname, pagesContext, routerOptions);
-            
-            const component = await generateComponent(location.pathname, pagesContext, routerOptions);
+            const component = await generateComponent(pathname, pagesContext, routerOptions);
             
             setComponent(component);
             
@@ -277,17 +293,15 @@ const Router = (props) => {
     }, []);
     
     const contextValue = {
-        location,
-        query: route.query,
-        navigate: (path, state) => {
+        location, query: route.query, navigate: (path, state) => {
             window.history.pushState(state, null, path);
             setLocation({pathname: path, state});
         },
     };
-    
+    const Loader = () => <Fragment>{props.loader()}</Fragment> || <div>Loading...</div>
     
     if (!component.isReady) {
-        return (<div>Loading..</div>);
+        return (<Loader/>);
     }
     
     
@@ -295,7 +309,7 @@ const Router = (props) => {
     
     
     return (<RouterContext.Provider value={contextValue}>
-        <Suspense fallback={<div>Loading....</div>}>
+        <Suspense fallback={<Loader/>}>
             <PageComponent {...route}/>
         </Suspense>
     </RouterContext.Provider>);

@@ -6,18 +6,20 @@ const options = {
     ext: ['jsx', 'js'],
     dirs: [{
         dir: 'src/pages',
-        baseRouter: '/index',
-        ext: ['jsx', 'js'],
+        baseRouter: '',
+        
     }, {
         dir: 'src/admin/pages',
         baseRouter: '/admin',
-        ext: ['jsx', 'js'],
-        
+        isDefault: true,
     }]
 }
 
+
+const Loader = () => <div>Yükleniyor</div>
+
 ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
-        <Router options={options}/>
+        <Router options={options} loader={Loader}/>
     </React.StrictMode>,
 )
